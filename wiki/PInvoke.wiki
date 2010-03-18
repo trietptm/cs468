@@ -1,0 +1,6 @@
+#summary Some info I've found useful for dealing with pinvoke and marshalling structs
+
+= Possible solutions handle WSABUF =
+
+  * Can just use IntPtr as any pointer then Marshal.PtrToStructure - [http://msdn.microsoft.com/en-us/library/4ca6d5z7.aspx]
+  * Some MSDN info [http://msdn.microsoft.com/en-us/library/aa446536.aspx]
