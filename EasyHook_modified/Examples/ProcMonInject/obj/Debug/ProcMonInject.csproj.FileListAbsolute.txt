@@ -3,3 +3,8 @@ C:\Users\Josh Eads\Desktop\EasyHook\Debug\x64\ProcMonInject.pdb
 C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcMonInject\obj\Debug\ResolveAssemblyReference.cache
 C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcMonInject\obj\Debug\ProcMonInject.dll
 C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcMonInject\obj\Debug\ProcMonInject.pdb
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Debug\x64\ProcMonInject.dll
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Debug\x64\ProcMonInject.pdb
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Examples\ProcMonInject\obj\Debug\ResolveAssemblyReference.cache
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Examples\ProcMonInject\obj\Debug\ProcMonInject.dll
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Examples\ProcMonInject\obj\Debug\ProcMonInject.pdb

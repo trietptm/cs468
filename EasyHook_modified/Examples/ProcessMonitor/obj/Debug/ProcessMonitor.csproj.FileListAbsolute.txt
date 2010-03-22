@@ -5,3 +5,10 @@ C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcessMonitor\obj\Debug\ProcessMon
 C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcessMonitor\obj\Debug\ProcessMonitor.csproj.GenerateResource.Cache
 C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcessMonitor\obj\Debug\ProcessMonitor.exe
 C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcessMonitor\obj\Debug\ProcessMonitor.pdb
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Debug\x64\ProcessMonitor.exe
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Debug\x64\ProcessMonitor.pdb
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Examples\ProcessMonitor\obj\Debug\ResolveAssemblyReference.cache
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Examples\ProcessMonitor\obj\Debug\ProcessMonitor.Form1.resources
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Examples\ProcessMonitor\obj\Debug\ProcessMonitor.csproj.GenerateResource.Cache
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Examples\ProcessMonitor\obj\Debug\ProcessMonitor.exe
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Examples\ProcessMonitor\obj\Debug\ProcessMonitor.pdb

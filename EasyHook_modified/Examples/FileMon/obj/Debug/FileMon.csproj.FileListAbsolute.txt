@@ -3,3 +3,8 @@ C:\Users\Josh Eads\Desktop\EasyHook\Debug\x64\FileMon.pdb
 C:\Users\Josh Eads\Desktop\EasyHook\Examples\FileMon\obj\Debug\ResolveAssemblyReference.cache
 C:\Users\Josh Eads\Desktop\EasyHook\Examples\FileMon\obj\Debug\FileMon.exe
 C:\Users\Josh Eads\Desktop\EasyHook\Examples\FileMon\obj\Debug\FileMon.pdb
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Debug\x64\FileMon.exe
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Debug\x64\FileMon.pdb
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Examples\FileMon\obj\Debug\ResolveAssemblyReference.cache
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Examples\FileMon\obj\Debug\FileMon.exe
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Examples\FileMon\obj\Debug\FileMon.pdb

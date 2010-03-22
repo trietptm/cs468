@@ -3,3 +3,8 @@ C:\Users\Josh Eads\Desktop\EasyHook\Debug\x64\ManagedTest.pdb
 C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTest\obj\Debug\ResolveAssemblyReference.cache
 C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTest\obj\Debug\ManagedTest.exe
 C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTest\obj\Debug\ManagedTest.pdb
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Debug\x64\ManagedTest.exe
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Debug\x64\ManagedTest.pdb
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Test\ManagedTest\obj\Debug\ResolveAssemblyReference.cache
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Test\ManagedTest\obj\Debug\ManagedTest.exe
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Test\ManagedTest\obj\Debug\ManagedTest.pdb
