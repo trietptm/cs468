@@ -1,0 +1,5 @@
+C:\Users\Josh Eads\Desktop\EasyHook\Release\x64\FileMonInject.dll
+C:\Users\Josh Eads\Desktop\EasyHook\Release\x64\FileMonInject.pdb
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\FileMonInject\obj\Release\ResolveAssemblyReference.cache
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\FileMonInject\obj\Release\FileMonInject.dll
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\FileMonInject\obj\Release\FileMonInject.pdb

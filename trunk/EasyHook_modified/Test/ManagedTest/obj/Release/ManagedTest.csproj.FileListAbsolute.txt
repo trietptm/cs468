@@ -1,0 +1,5 @@
+C:\Users\Josh Eads\Desktop\EasyHook\Release\x64\ManagedTest.exe
+C:\Users\Josh Eads\Desktop\EasyHook\Release\x64\ManagedTest.pdb
+C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTest\obj\Release\ResolveAssemblyReference.cache
+C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTest\obj\Release\ManagedTest.exe
+C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTest\obj\Release\ManagedTest.pdb

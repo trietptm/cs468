@@ -1,0 +1,7 @@
+C:\Users\Josh Eads\Desktop\EasyHook\Debug\x64\ManagedTarget.exe
+C:\Users\Josh Eads\Desktop\EasyHook\Debug\x64\ManagedTarget.pdb
+C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTarget\obj\Debug\ResolveAssemblyReference.cache
+C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTarget\obj\Debug\ManagedTarget.Properties.Resources.resources
+C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTarget\obj\Debug\ManagedTarget.csproj.GenerateResource.Cache
+C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTarget\obj\Debug\ManagedTarget.exe
+C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTarget\obj\Debug\ManagedTarget.pdb
