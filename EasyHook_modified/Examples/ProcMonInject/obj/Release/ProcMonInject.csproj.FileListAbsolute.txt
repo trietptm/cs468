@@ -1,0 +1,5 @@
+C:\Users\Josh Eads\Desktop\EasyHook\Release\x64\ProcMonInject.dll
+C:\Users\Josh Eads\Desktop\EasyHook\Release\x64\ProcMonInject.pdb
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcMonInject\obj\Release\ResolveAssemblyReference.cache
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcMonInject\obj\Release\ProcMonInject.dll
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcMonInject\obj\Release\ProcMonInject.pdb

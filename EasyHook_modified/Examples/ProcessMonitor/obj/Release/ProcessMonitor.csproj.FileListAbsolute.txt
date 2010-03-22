@@ -1,0 +1,7 @@
+C:\Users\Josh Eads\Desktop\EasyHook\Release\x64\ProcessMonitor.exe
+C:\Users\Josh Eads\Desktop\EasyHook\Release\x64\ProcessMonitor.pdb
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcessMonitor\obj\Release\ResolveAssemblyReference.cache
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcessMonitor\obj\Release\ProcessMonitor.Form1.resources
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcessMonitor\obj\Release\ProcessMonitor.csproj.GenerateResource.Cache
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcessMonitor\obj\Release\ProcessMonitor.exe
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\ProcessMonitor\obj\Release\ProcessMonitor.pdb

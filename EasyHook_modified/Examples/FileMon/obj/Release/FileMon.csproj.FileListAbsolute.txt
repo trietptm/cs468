@@ -1,0 +1,5 @@
+C:\Users\Josh Eads\Desktop\EasyHook\Release\x64\FileMon.exe
+C:\Users\Josh Eads\Desktop\EasyHook\Release\x64\FileMon.pdb
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\FileMon\obj\Release\ResolveAssemblyReference.cache
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\FileMon\obj\Release\FileMon.exe
+C:\Users\Josh Eads\Desktop\EasyHook\Examples\FileMon\obj\Release\FileMon.pdb

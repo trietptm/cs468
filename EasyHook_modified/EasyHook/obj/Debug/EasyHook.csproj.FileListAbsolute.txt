@@ -1,0 +1,5 @@
+C:\Users\Josh Eads\Desktop\EasyHook\Debug\x64\EasyHook.dll
+C:\Users\Josh Eads\Desktop\EasyHook\Debug\x64\EasyHook.pdb
+C:\Users\Josh Eads\Desktop\EasyHook\EasyHook\obj\Debug\ResolveAssemblyReference.cache
+C:\Users\Josh Eads\Desktop\EasyHook\EasyHook\obj\Debug\EasyHook.dll
+C:\Users\Josh Eads\Desktop\EasyHook\EasyHook\obj\Debug\EasyHook.pdb
