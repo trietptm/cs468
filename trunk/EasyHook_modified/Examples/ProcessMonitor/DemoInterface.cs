@@ -52,7 +52,7 @@ namespace ProcessMonitor
             }
         }
 
-        public void OnCreateFile(
+        public void OnSend(
             Int32 InClientPID,
             String[] InFileNames)
         {
@@ -64,7 +64,45 @@ namespace ProcessMonitor
                     {
                         Form1.MonitorQueue.Enqueue(new MonitorEntry(
                                 InClientPID,
-                                "[FILE]: \"" + InFileNames[i] + "\""
+                                "[send(buffer)]: \"" + InFileNames[i] + "\""
+                            ));
+                    }
+                }
+            }
+        }
+
+        public void OnWSASend(
+            Int32 InClientPID,
+            String[] InFileNames)
+        {
+            if (Form1.IsMonitoring)
+            {
+                lock (Form1.MonitorQueue)
+                {
+                    for (int i = 0; i < InFileNames.Length; i++)
+                    {
+                        Form1.MonitorQueue.Enqueue(new MonitorEntry(
+                                InClientPID,
+                                "[WSASend(buffer)]: \"" + InFileNames[i] + "\""
+                            ));
+                    }
+                }
+            }
+        }
+
+        public void OnRecv(
+            Int32 InClientPID,
+            String[] InFileNames)
+        {
+            if (Form1.IsMonitoring)
+            {
+                lock (Form1.MonitorQueue)
+                {
+                    for (int i = 0; i < InFileNames.Length; i++)
+                    {
+                        Form1.MonitorQueue.Enqueue(new MonitorEntry(
+                                InClientPID,
+                                "[recv(buffer)]: \"" + InFileNames[i] + "\""
                             ));
                     }
                 }

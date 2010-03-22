@@ -21,7 +21,10 @@ namespace ProcessMonitor
         public DemoInterface Interface = null;
         public LocalHook sendHook = null;
         public LocalHook recvHook = null;
-        Stack<String> Queue = new Stack<string>();
+        public LocalHook WSASendHook = null;
+        Stack<String> QueueSend = new Stack<string>();
+        Stack<String> QueueWSASend = new Stack<string>();
+        Stack<String> QueueRecv = new Stack<string>();
 
         public DemoInjection(
             RemoteHooking.IContext InContext,
@@ -44,8 +47,13 @@ namespace ProcessMonitor
                     this);
 
                 recvHook = LocalHook.Create(
+                    LocalHook.GetProcAddress("ws2_32.dll", "recv"),
+                    new Drecv(recv_Hooked),
+                    this);
+
+                WSASendHook = LocalHook.Create(
                     LocalHook.GetProcAddress("ws2_32.dll", "WSASend"),
-                    new Dsend(send_Hooked),
+                    new DWSASend(WSASend_Hooked),
                     this);
 
                 /*
@@ -54,6 +62,7 @@ namespace ProcessMonitor
                  */
                 sendHook.ThreadACL.SetExclusiveACL(new Int32[1]);
                 recvHook.ThreadACL.SetExclusiveACL(new Int32[1]);
+                WSASendHook.ThreadACL.SetExclusiveACL(new Int32[1]);
             }
             catch (Exception e)
             {
@@ -74,17 +83,42 @@ namespace ProcessMonitor
                     Thread.Sleep(500);
 
                     // transmit newly monitored file accesses...
-                    lock (Queue)
+                    lock (QueueSend)
                     {
-                        if (Queue.Count > 0)
+                        if (QueueSend.Count > 0)
                         {
                             String[] Package = null;
 
-                            Package = Queue.ToArray();
+                            Package = QueueSend.ToArray();
 
-                            Queue.Clear();
+                            QueueSend.Clear();
 
-                            Interface.OnCreateFile(RemoteHooking.GetCurrentProcessId(), Package);
+                            Interface.OnSend(RemoteHooking.GetCurrentProcessId(), Package);
+                        }
+                    }
+
+                    lock (QueueRecv)
+                    {
+                        if (QueueRecv.Count > 0)
+                        {
+                            String[] Package = null;
+
+                            Package = QueueRecv.ToArray();
+
+                            QueueRecv.Clear();
+
+                            Interface.OnRecv(RemoteHooking.GetCurrentProcessId(), Package);
+                        }
+                    }
+
+                    lock (QueueWSASend)
+                    {
+                        if (QueueWSASend.Count > 0)
+                        {
+                            String[] Package = null;
+                            Package = QueueWSASend.ToArray();
+                            QueueWSASend.Clear();
+                            Interface.OnWSASend(RemoteHooking.GetCurrentProcessId(), Package);
                         }
                     }
                 }
@@ -113,12 +147,12 @@ namespace ProcessMonitor
                 DemoInjection This = (DemoInjection)HookRuntimeInfo.Callback;
                 String buffer = "";
                 //char* tempBuf = buf;
-                lock (This.Queue)
+                lock (This.QueueSend)
                 {
-                    if (This.Queue.Count < 1000)
+                    if (This.QueueSend.Count < 1000)
                     {
                         buffer = Marshal.PtrToStringAnsi(buf, len);
-                        This.Queue.Push(buffer);// (buf, char[])[0]).ToString());
+                        This.QueueSend.Push(buffer);// (buf, char[])[0]).ToString());
                     }
                 }
             }
@@ -128,6 +162,40 @@ namespace ProcessMonitor
 
             // call original API...
             return send(s, buf, len, flags);
+        }
+
+        /* ------- recv() --------- */
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Auto, SetLastError = true)]
+        unsafe delegate Int32 Drecv(Int32 s, IntPtr buf, Int32 len, Int32 flags);
+
+        // just use a P-Invoke implementation to get native API access from C# (this step is not necessary for C++.NET)
+        [DllImport("ws2_32.dll", CharSet = CharSet.Unicode, SetLastError = true, CallingConvention = CallingConvention.StdCall)]
+        public unsafe static extern Int32 recv(Int32 s, IntPtr buf, Int32 len, Int32 flags);
+
+
+        // this is where we are intercepting all file accesses!
+        static unsafe Int32 recv_Hooked(Int32 s, IntPtr buf, Int32 len, Int32 flags)
+        {
+            try
+            {
+                DemoInjection This = (DemoInjection)HookRuntimeInfo.Callback;
+                String buffer = "";
+                //char* tempBuf = buf;
+                lock (This.QueueRecv)
+                {
+                    if (This.QueueRecv.Count < 1000)
+                    {
+                        buffer = Marshal.PtrToStringAnsi(buf, len);
+                        This.QueueRecv.Push(buffer);// (buf, char[])[0]).ToString());
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            // call original API...
+            return recv(s, buf, len, flags);
         }
 
 
@@ -150,12 +218,12 @@ namespace ProcessMonitor
             {
                 DemoInjection This = (DemoInjection)HookRuntimeInfo.Callback;
 
-                lock (This.Queue)
+                lock (This.QueueWSASend)
                 {
                     WSABUF buffer = new WSABUF();
                     Marshal.PtrToStructure(lpBuffers, buffer);
-                    if (This.Queue.Count < 1000)
-                        This.Queue.Push(Marshal.PtrToStringAnsi((IntPtr)buffer.buf, (int)buffer.len));
+                    if (This.QueueWSASend.Count < 1000)
+                        This.QueueWSASend.Push(Marshal.PtrToStringAnsi((IntPtr)buffer.buf, (int)buffer.len));
                 }
             }
             catch

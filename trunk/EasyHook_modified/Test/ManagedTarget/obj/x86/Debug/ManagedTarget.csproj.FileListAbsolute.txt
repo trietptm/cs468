@@ -5,3 +5,10 @@ C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTarget\obj\x86\Debug\ManagedTarg
 C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTarget\obj\x86\Debug\ManagedTarget.csproj.GenerateResource.Cache
 C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTarget\obj\x86\Debug\ManagedTarget.exe
 C:\Users\Josh Eads\Desktop\EasyHook\Test\ManagedTarget\obj\x86\Debug\ManagedTarget.pdb
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Debug\x86\ManagedTarget.exe
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Debug\x86\ManagedTarget.pdb
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Test\ManagedTarget\obj\x86\Debug\ResolveAssemblyReference.cache
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Test\ManagedTarget\obj\x86\Debug\ManagedTarget.Properties.Resources.resources
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Test\ManagedTarget\obj\x86\Debug\ManagedTarget.csproj.GenerateResource.Cache
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Test\ManagedTarget\obj\x86\Debug\ManagedTarget.exe
+C:\Users\Josh Eads\Desktop\CS 468\EasyHook_modified\Test\ManagedTarget\obj\x86\Debug\ManagedTarget.pdb
