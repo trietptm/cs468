@@ -6,6 +6,7 @@ import signal
 import math
 from optparse import OptionParser
 
+#COMPLETELY ARBITRARY FOR NOW
 ENTROPY_LIMIT = 0.80
 
 def handler_breakpoint (dbg):
@@ -15,6 +16,7 @@ def handler_breakpoint (dbg):
    
    buffer = ''
    entropy = 0
+   stack_list = None
 
    if not dbg.bp_is_ours(dbg.context.Eip):
       pass
@@ -24,6 +26,14 @@ def handler_breakpoint (dbg):
       print "\nSEND: %s" % buffer
       if entropy > ENTROPY_LIMIT:
          print "=== ENCRYPTED TRAFFIC ==="
+         #todo: Figure out how to get the call stack
+         stack_list = dbg.stack_unwind()
+         if stack_list:
+            print "Call stack:"
+            for return_addr in stack_list:
+               print "  0x%x" % return_addr
+         #print "Returns to 0x%x" % dbg.get_arg(0)
+         #print "Context: %s" % dbg.dump_context()
       print "Entropy: %f" % entropy
    elif dbg.context.Eip == dbg.func_resolve('ws2_32', 'recv'):
       buffer = dbg.read_process_memory(dbg.get_arg(2), dbg.get_arg(3))
@@ -31,6 +41,14 @@ def handler_breakpoint (dbg):
       print "\nRECV: %s" % buffer
       if entropy > ENTROPY_LIMIT:
          print "=== ENCRYPTED TRAFFIC ==="
+         #todo: Figure out how to get the call stack
+         stack_list = dbg.stack_unwind()
+         if stack_list:
+            print "Call stack:"
+            for return_addr in stack_list:
+               print "  0x%x" % return_addr
+         #print "Context: %s" % dbg.dump_context()
+         print "Returns to 0x%x" % dbg.get_arg(0)
       print "Entropy: %f" % entropy
    elif dbg.context.Eip == EXE_ENTRY:
       print '[+] reached entry point, setting library breakpoints'
@@ -56,8 +74,6 @@ def calc_entropy(hex_list):
       else:
          freq[byte] = 1.0
    for byte in freq:
-      #print "sum %d" % sum
-      #print "freq[%s] %d" % (byte, freq[byte])
       p = freq[byte] * 1.0 / len(hex_list)
       entropy -= p * math.log(p, 256)
       
@@ -65,6 +81,7 @@ def calc_entropy(hex_list):
    
 if __name__ == '__main__':
    main_dbg = pydbg()
+   main_dbg.hide_debugger()
    
    #Parse command line arguments
    parser = OptionParser()
@@ -91,6 +108,7 @@ if __name__ == '__main__':
       
    elif options.filepath:
       #break at entry of loaded file, then break on specific libraries
+      print "[+] Loading file at %s" % options.filepath
       EXE_HEAD = pefile.PE(options.filepath)
       EXE_ENTRY = EXE_HEAD.OPTIONAL_HEADER.AddressOfEntryPoint \
             + EXE_HEAD.OPTIONAL_HEADER.ImageBase
