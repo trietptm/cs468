@@ -13,7 +13,7 @@ def handler_breakpoint (dbg):
    # ignore the first windows driven breakpoint.
    #if pydbg.first_breakpoint:
 	#   return DBG_CONTINUE
-   
+
    buffer = ''
    entropy = 0
    stack_list = None
@@ -59,7 +59,7 @@ def handler_breakpoint (dbg):
          print 'Unable to register some of the library breakpoints'
    else:
       print 'What?'
-   
+
    #print "ws2_32.send() called from thread %d @%08x" % (pydbg.dbg.dwThreadId, pydbg.exception_address)
    return DBG_CONTINUE
 
@@ -76,44 +76,54 @@ def calc_entropy(hex_list):
    for byte in freq:
       p = freq[byte] * 1.0 / len(hex_list)
       entropy -= p * math.log(p, 256)
-      
+
    return entropy
-   
+
 if __name__ == '__main__':
    main_dbg = pydbg()
    main_dbg.hide_debugger()
    
    #Parse command line arguments
    parser = OptionParser()
-   parser.add_option("-a", "--attach", dest="attachName", default='', help="Name of process to attach to")
+   parser.add_option("-a", "--attach", dest="attachName", default='', help="Name/PID of process to attach to")
    parser.add_option("-l", "--load", dest="filepath", default='', help="Path of file to load")
 
    (options, args) = parser.parse_args()
-   
+
    if options.attachName:
       #find our process if we want to attach
-      for (pid, name) in main_dbg.enumerate_processes():
-         if name == options.attachName:
-            break
-      print "[+] Attaching to PID %d" % pid
-      main_dbg.set_callback(EXCEPTION_BREAKPOINT, handler_breakpoint)
-      main_dbg.attach(pid)
-      #try:
-      main_dbg.bp_set(main_dbg.func_resolve('ws2_32','send'))
-      main_dbg.bp_set(main_dbg.func_resolve('ws2_32','recv'))
-      #except:
-         #figure out how to report which one failed
-         #print 'Unable to register some of the library breakpoints'
-      main_dbg.debug_event_loop()
+      foundPID = False
+      if options.attachName.isdigit():
+         pid = long(options.attachName)
+         foundPID = True
+      else:
+         for (pid, name) in main_dbg.enumerate_processes():
+            if name == options.attachName:
+               foundPID = True
+               break
       
+      if foundPID:
+         print "[+] Attaching to PID %d" % pid
+         main_dbg.set_callback(EXCEPTION_BREAKPOINT, handler_breakpoint)
+         main_dbg.attach(pid)
+         #try:
+         main_dbg.bp_set(main_dbg.func_resolve('ws2_32','send'))
+         main_dbg.bp_set(main_dbg.func_resolve('ws2_32','recv'))
+         #except:
+            #figure out how to report which one failed
+            #print 'Unable to register some of the library breakpoints'
+         main_dbg.debug_event_loop()
+      else:
+         print "Could not find process: " + options.attachName
+
    elif options.filepath:
       #break at entry of loaded file, then break on specific libraries
       print "[+] Loading file at %s" % options.filepath
       EXE_HEAD = pefile.PE(options.filepath)
       EXE_ENTRY = EXE_HEAD.OPTIONAL_HEADER.AddressOfEntryPoint \
             + EXE_HEAD.OPTIONAL_HEADER.ImageBase
-            
-      #load our file from disk               
+
+      #load our file from disk
       main_dbg.load(options.filepath)
 
       # register a breakpoint handler function.
