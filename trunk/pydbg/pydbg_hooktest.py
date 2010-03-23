@@ -15,41 +15,21 @@ def handler_breakpoint (dbg):
 	#   return DBG_CONTINUE
 
    buffer = ''
-   entropy = 0
-   stack_list = None
-
+   
+   main_dbg.hide_debugger()
+ 
    if not dbg.bp_is_ours(dbg.context.Eip):
       pass
    elif dbg.context.Eip == dbg.func_resolve('ws2_32', 'send'):
       buffer = dbg.read_process_memory(dbg.get_arg(2), dbg.get_arg(3))
-      entropy = calc_entropy(list(buffer))
       print "\nSEND: %s" % buffer
-      if entropy > ENTROPY_LIMIT:
-         print "=== ENCRYPTED TRAFFIC ==="
-         #todo: Figure out how to get the call stack
-         stack_list = dbg.stack_unwind()
-         if stack_list:
-            print "Call stack:"
-            for return_addr in stack_list:
-               print "  0x%x" % return_addr
-         #print "Returns to 0x%x" % dbg.get_arg(0)
-         #print "Context: %s" % dbg.dump_context()
-      print "Entropy: %f" % entropy
+      print_state_info(dbg)
+      
    elif dbg.context.Eip == dbg.func_resolve('ws2_32', 'recv'):
       buffer = dbg.read_process_memory(dbg.get_arg(2), dbg.get_arg(3))
-      entropy = calc_entropy(list(buffer))
       print "\nRECV: %s" % buffer
-      if entropy > ENTROPY_LIMIT:
-         print "=== ENCRYPTED TRAFFIC ==="
-         #todo: Figure out how to get the call stack
-         stack_list = dbg.stack_unwind()
-         if stack_list:
-            print "Call stack:"
-            for return_addr in stack_list:
-               print "  0x%x" % return_addr
-         #print "Context: %s" % dbg.dump_context()
-         print "Returns to 0x%x" % dbg.get_arg(0)
-      print "Entropy: %f" % entropy
+      print_state_info(dbg)
+      
    elif dbg.context.Eip == EXE_ENTRY:
       print '[+] reached entry point, setting library breakpoints'
       try:
@@ -63,6 +43,37 @@ def handler_breakpoint (dbg):
    #print "ws2_32.send() called from thread %d @%08x" % (pydbg.dbg.dwThreadId, pydbg.exception_address)
    return DBG_CONTINUE
 
+def print_state_info(dbg):
+   entropy = 0
+   stack_list = None
+   thread_context = None
+   dll = None
+   return_addr = dbg.get_arg(0)
+   buffer = dbg.read_process_memory(dbg.get_arg(2), dbg.get_arg(3))
+   
+   entropy = calc_entropy(list(buffer))
+   if entropy > ENTROPY_LIMIT:
+      print "=== ENCRYPTED TRAFFIC ==="
+      #todo: Figure out how to get the call stack
+      #idea: we're in the wrong thread context (in ws2_32, not PID)
+      #      enumerate all threads, find the one where its context.Eip == return value range
+      dll = dbg.addr_to_dll(dbg.context.Eip)
+      if dll:
+         print "Currently in DLL: %s" % dll.name
+      print "Return address: 0x%x" % return_addr
+      for thread_id in dbg.enumerate_threads():
+         thread_context = dbg.get_thread_context(None, thread_id)
+         if thread_context:
+            print "Thread ID: %d, EIP: 0x%x" % (thread_id, thread_context.Eip)
+      stack_list = dbg.stack_unwind()
+      if stack_list:
+         print "Call stack:"
+         for return_addr in stack_list:
+            print "  0x%x" % return_addr
+      #print "Returns to 0x%x" % dbg.get_arg(0)
+      #print "Context: %s" % dbg.dump_context()
+   print "Entropy: %f" % entropy
+   
 def calc_entropy(hex_list):
    #See http://en.wikipedia.org/wiki/Entropy_%28information_theory%29#Definition
    #TODO: Optimize
@@ -81,7 +92,6 @@ def calc_entropy(hex_list):
 
 if __name__ == '__main__':
    main_dbg = pydbg()
-   main_dbg.hide_debugger()
    
    #Parse command line arguments
    parser = OptionParser()
