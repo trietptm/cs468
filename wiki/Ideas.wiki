@@ -3,4 +3,4 @@ Tried to put memory breakpoints on the buffers used to see if the data is later 
 Tried HW breakpoints but just registering a callback cause the HW BP to trigger all the time and lock the program up.
 
 ==Enable Logging with PyDbg==
- * If you want to enable the PyDbg logging, change line 144 of pydbg.py to use sys.stderr.write() instead of None.  This requires a reinstall w/ setup.py
+ * If you want to enable the PyDbg logging, change line 144 of pydbg.py to use sys.stderr.write() instead of None.  This requires a reinstall w/ setup.py (or you could just change it in python26/lib/site-packages/pydbg)
