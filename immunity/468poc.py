@@ -32,6 +32,8 @@ class hooker(LogBpHook):
             # do call stacks of the 1 byte message
             if self.print_buffer(imm, func_name, regs) > 1:
                 self.print_stack(imm, regs)
+        elif func_name == "ws2_32.recv":
+            self.print_buffer(imm, "ws2_32.send", regs)
     
     def print_buffer(self, imm, function, regs):
         if function == "ws2_32.send":
@@ -44,12 +46,30 @@ class hooker(LogBpHook):
             size = struct.unpack("i", size)[0]
             
             buffer = imm.readMemory(buffer_ptr, size)
-            imm.log("    buffer pointer: %08x, size: %s.  contents: %s" % (buffer_ptr, size, buffer))
+
+            print_buff, hex_buff = self.get_printable_buffer(buffer, size)
+            imm.log("    buffer pointer: %08x, size: %s." % (buffer_ptr, size))
+            imm.log("    ascii: %s" % print_buff[:256])
+            imm.log("    hex:   %s" % hex_buff[:128])
            
             # Something real quick to filter out the 1 byte messages
             return size
-            
     
+    def get_printable_buffer(self, buffer, length):
+        counter = 0
+        print_buff = ""
+        hex_buff = ""
+        while counter < length:
+            if ord(buffer[counter]) >= 32 and ord(buffer[counter]) <= 126:
+                print_buff += buffer[counter]
+            else:
+                print_buff += "."
+            
+            hex_buff += "0x%02x " % ord(buffer[counter])
+            counter += 1
+        
+        return (print_buff, hex_buff)
+            
     def print_stack(self, imm, regs):
         callstack = imm.callStack()
         for a in callstack:
