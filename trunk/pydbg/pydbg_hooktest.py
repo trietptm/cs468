@@ -100,7 +100,8 @@ def handler_breakpoint (dbg):
         print "Stack BP at CALL 0x%08x" % dbg.context.Eip
         for arg in range(3):
             try:
-                print "    Arg[%d]: 0x%08x, deref: %s" % (arg, dbg.get_arg(arg), dbg.read_process_memory(dbg.get_arg(arg), 32))
+                print "    Arg[%d]: 0x%08x" % (arg, dbg.get_arg(arg)),
+                print ", deref: %s" % (dbg.read_process_memory(dbg.get_arg(arg), 32))
             except Exception, e:
                 print e
         dbg.bp_del(dbg.context.Eip)
