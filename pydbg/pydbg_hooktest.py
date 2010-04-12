@@ -11,6 +11,11 @@ from optparse import OptionParser
 ENTROPY_LIMIT = 0.80
 EXE_ENTRY = None
 
+def print_bps(dbg):
+    print "BPS: "
+    for bp in dbg.breakpoints.keys():
+        print "  %08X" % bp
+
 def handler_single_step (dbg):
     #print "Inside handler_single_step!"
     if dbg.dbg.dwThreadId != dbg.monitor_tid:
@@ -30,31 +35,34 @@ def handler_single_step (dbg):
 
     #if dbg.mirror_stack and dbg.context.Eip == dbg.mirror_stack[-1][1]:
     #    dbg.mirror_stack.pop()
-    
+
+
     if len(dbg.stack_trace) > 5:
         print "stopping trace when > 5"
-        
+
         print "Running call stack:"
         for addr in dbg.stack_trace:
-            print "0x%08x" % addr
-            print dbg.disasm_around(addr)
-            
-        for addr in dbg.stack_trace:
-            dbg.call_bps.append(dbg.disasm_around(addr)[4][0])
-            dbg.bp_set(dbg.disasm_around(addr)[4][0])
-            
+            callAddr, callLine = dbg.disasm_around(addr)[4]
+            dbg.call_bps.append(callAddr)
+            print "Address: 0x%08x" % addr
+            if '[' in callLine:
+                callLine += " (0x%08x)" % callAddr
+            print "  adding BP on %s" % callLine
+            dbg.bp_set(callAddr)
+
         dbg.stack_trace = []
         dbg.single_step(False)
         dbg.bp_del(dbg.ret_addr)
         dbg.bp_del(dbg.func_resolve('ws2_32', 'send'))
         dbg.bp_del(dbg.func_resolve('ws2_32', 'recv'))
+
         return DBG_CONTINUE
 
     if disasm.startswith("ret"):
         print "RET @ 0x%08x to 0x%08x" % (dbg.context.Eip, dbg.get_arg(0))
         dbg.stack_trace.append(dbg.get_arg(0))
         dbg.single_step(True)
-        
+
         print "moving ret_addr to 0x%08x" % dbg.get_arg(0)
         dbg.bp_del(dbg.ret_addr)
         dbg.ret_addr = dbg.get_arg(0)
@@ -68,44 +76,53 @@ def handler_single_step (dbg):
     dbg.single_step(True)
     return DBG_CONTINUE
 
-
 def handler_breakpoint (dbg):
     # ignore the first windows driven breakpoint.
     #if pydbg.first_breakpoint:
         #   return DBG_CONTINUE
 
     buffer = ''
-
     main_dbg.hide_debugger()
 
     if not dbg.bp_is_ours(dbg.context.Eip):
         pass
     elif dbg.context.Eip == dbg.func_resolve('ws2_32', 'send'):
         buffer = dbg.read_process_memory(dbg.get_arg(2), dbg.get_arg(3))
-        print "\nSEND: %s" % buffer
-        print_state_info(dbg)
+        #Ignore "8" being sent from firefox
+        #todo: figure out why that's sent
+        info = ('', "\nSEND: \"%s\"" % buffer)[len(buffer) > 1]
+        print_state_info(dbg, info)
 
     elif dbg.context.Eip == dbg.func_resolve('ws2_32', 'recv'):
         buffer = dbg.read_process_memory(dbg.get_arg(2), dbg.get_arg(3))
-        print "\nRECV: %s" % buffer
-        print_state_info(dbg)
-        
+        info = ('', "\nRECV: \"%s\"" % buffer)[len(buffer) > 1]
+        print_state_info(dbg, info)
+
     elif dbg.context.Eip == dbg.ret_addr:
         print "breaking on ret_addr: 0x%08x" % dbg.ret_addr
         print "Engage Single Stepping!"
         dbg.monitor_tid = dbg.dbg.dwThreadId
         dbg.single_step(True)
-    
+
     elif dbg.context.Eip in dbg.call_bps:
         print "Stack BP at CALL 0x%08x" % dbg.context.Eip
         for arg in range(3):
             try:
-                print "    Arg[%d]: 0x%08x" % (arg, dbg.get_arg(arg)),
-                print ", deref: %s" % (dbg.read_process_memory(dbg.get_arg(arg), 32))
+                if arg == 0:
+                    print "    Return address: 0x%08x" % dbg.get_arg(arg)
+                else:
+                    print "    Arg[%d]: 0x%08x" % (arg, dbg.get_arg(arg)),
+                    print ", deref: %s" % (dbg.read_process_memory(dbg.get_arg(arg), 32))
             except Exception, e:
                 print e
         dbg.bp_del(dbg.context.Eip)
-        
+
+        if len(dbg.breakpoints.keys()) == 0:
+            print "No more BPs, detaching"
+            #crashes
+            #dbg.detach()
+            print "...well can't detach, hit ctrl c"
+
     elif dbg.context.Eip == EXE_ENTRY:
         print '[+] reached entry point, setting library breakpoints'
         try:
@@ -120,7 +137,7 @@ def handler_breakpoint (dbg):
     #print "ws2_32.send() called from thread %d @%08x" % (pydbg.dbg.dwThreadId, pydbg.exception_address)
     return DBG_CONTINUE
 
-def print_state_info(dbg):
+def print_state_info(dbg, info=''):
     entropy = 0
     stack_list = None
     thread_context = None
@@ -128,10 +145,18 @@ def print_state_info(dbg):
     return_addr = dbg.get_arg(0)
     buffer = dbg.read_process_memory(dbg.get_arg(2), dbg.get_arg(3))
 
+    #Don't print "SEND: 8" for firefox
+    if info:
+        print info
+
     entropy = calc_entropy(list(buffer))
+    #not enough data to calculate entropy, ignore
+    if entropy > 0:
+        print "Entropy: %f" % entropy
+
     if entropy > ENTROPY_LIMIT:
         print "=== ENCRYPTED TRAFFIC ==="
-        #todo: Figure out how to get the call stack
+        #todone: Figure out how to get the call stack
         #idea: we're in the wrong thread context (in ws2_32, not PID)
         #      enumerate all threads, find the one where its context.Eip == return value range
         dll = dbg.addr_to_dll(dbg.context.Eip)
@@ -148,14 +173,12 @@ def print_state_info(dbg):
             for return_addr in stack_list:
                 print "  0x%x" % return_addr
         else: #try to manually reconstruct the call stack
-            print "[+] Setting ret_addr to 0x%08x" % dbg.get_arg(0)
             dbg.ret_addr = dbg.get_arg(0)
+            print "[+] Setting BP for ret_addr at 0x%08x" % dbg.ret_addr
             dbg.bp_set(dbg.ret_addr)
             dbg.stack_trace = [] #clear out call stack
-            
-        #print "Returns to 0x%x" % dbg.get_arg(0)
+
         #print "Context: %s" % dbg.dump_context()
-    print "Entropy: %f" % entropy
 
 def calc_entropy(hex_list):
     #See http://en.wikipedia.org/wiki/Entropy_%28information_theory%29#Definition
