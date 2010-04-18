@@ -5,6 +5,7 @@ import sys
 import signal
 import math
 import time
+import re
 from optparse import OptionParser
 
 #COMPLETELY ARBITRARY FOR NOW
@@ -21,21 +22,14 @@ def handler_single_step (dbg):
     if dbg.dbg.dwThreadId != dbg.monitor_tid:
         #print "not in current thread?"
         return DBG_CONTINUE
-
+    
+    elif len(dbg.encryption_bps) > 0:
+        # Some reason it kicks into this handler sometimes... so if we have
+        # some encryption bps set, just get out of it
+        dbg.single_step(False)
+        return DBG_CONTINUE
+        
     disasm   = dbg.disasm(dbg.context.Eip)
-    #ret_addr = dbg.get_arg(0)
-
-    # if the current instruction is in a system DLL and the return address is not, set a breakpoint on it and continue
-    # without single stepping.
-    #if dbg.context.Eip > 0x70000000 and ret_addr < 0x70000000:
-    #    dbg.bp_set(ret_addr)
-    #    return DBG_CONTINUE
-
-    #print "%08x: %s" % (dbg.context.Eip, dbg.disasm(dbg.context.Eip))
-
-    #if dbg.mirror_stack and dbg.context.Eip == dbg.mirror_stack[-1][1]:
-    #    dbg.mirror_stack.pop()
-
 
     if len(dbg.stack_trace) > 5:
         print "stopping trace when > 5"
@@ -76,6 +70,26 @@ def handler_single_step (dbg):
     dbg.single_step(True)
     return DBG_CONTINUE
 
+def dump_stack_args(dbg):
+    for arg in range(3):
+        try:
+            if arg == 0:
+                print "    Return address: 0x%08x" % dbg.get_arg(arg)
+            else:
+                stack_arg = dbg.get_arg(arg)
+                print "    Arg[%d]: 0x%08x, deref: " % (arg, stack_arg),
+                
+                # This helps eliminate some of the read_proc_mem errors by
+                # not trying for some arguments...
+                if stack_arg == 0x0:
+                    print "(null)"
+                elif stack_arg < 0xFFFF:
+                    print "(buffer size or some flags?)"
+                else:
+                    print dbg.get_printable_string((dbg.read_process_memory(dbg.get_arg(arg), 256)))
+        except Exception, e:
+            print e
+                
 def handler_breakpoint (dbg):
     # ignore the first windows driven breakpoint.
     #if pydbg.first_breakpoint:
@@ -86,7 +100,14 @@ def handler_breakpoint (dbg):
 
     if not dbg.bp_is_ours(dbg.context.Eip):
         pass
+        
+    elif dbg.context.Eip in dbg.encryption_bps:
+        print "[+] Hit encryption breakpoint at 0x%08x" % dbg.context.Eip
+        dump_stack_args(dbg)
+        return DBG_CONTINUE
+        
     elif dbg.context.Eip == dbg.func_resolve('ws2_32', 'send'):
+        print "[+] Hit ws2_32.send at 0x%08x" % dbg.context.Eip
         buffer = dbg.read_process_memory(dbg.get_arg(2), dbg.get_arg(3))
         #Ignore "8" being sent from firefox
         #todo: figure out why that's sent
@@ -107,15 +128,8 @@ def handler_breakpoint (dbg):
     #We're going to do a call stack trace and put BPs on all the calls before-hand
     elif dbg.context.Eip in dbg.call_bps:
         print "Stack BP at CALL 0x%08x" % dbg.context.Eip
-        for arg in range(3):
-            try:
-                if arg == 0:
-                    print "    Return address: 0x%08x" % dbg.get_arg(arg)
-                else:
-                    print "    Arg[%d]: 0x%08x" % (arg, dbg.get_arg(arg)),
-                    print ", deref: %s" % dbg.get_printable_string((dbg.read_process_memory(dbg.get_arg(arg), 256)))
-            except Exception, e:
-                print e
+        dump_stack_args(dbg)
+
         dbg.bp_del(dbg.context.Eip)
         dbg.call_bps.remove(dbg.context.Eip)
 
@@ -125,35 +139,27 @@ def handler_breakpoint (dbg):
             dbg.ret_addr = 0
             dbg.bp_del_all()
             try:
-                addr = int(raw_input("Enter encryption function BP [press Enter to continue search]: "),16)
+                addrs = raw_input("Enter encryption function BPs (comma separated) [press Enter to continue search]: ")
             except ValueError:
                 print "No input received, rehooking send/recv to continue search"
                 dbg.bp_set(dbg.func_resolve('ws2_32', 'send'))
                 dbg.bp_set(dbg.func_resolve('ws2_32', 'recv'))     
                 return DBG_CONTINUE
             
-            print "[+] Setting encryption breakpoint at 0x%08x" % addr
-            dbg.bp_set(addr)
-            dbg.encryption_bps.append(addr)
+            # loop through all addr...
+            addrs = re.sub('\s', '', addrs)
+            for addr in addrs.split(','):
+                # reminder - addr is a string '0xdeadbeef', pydbg expects dword                
+                print "[+] Setting encryption breakpoint at %s" % addr
+                dbg.bp_set(int(addr, 16))
+                print "set..."
+                dbg.encryption_bps.append(int(addr, 16))
+                print "appended..."
             return DBG_CONTINUE
 
-            #crashes
             #dbg.detach()
             #print "...well can't detach, hit ctrl c"
-
-    elif dbg.context.Eip in dbg.encryption_bps:
-        print "[+] Hit encryption breakpoint at 0x%08x" % dbg.context.Eip
-        for arg in range(3):
-            try:
-                if arg == 0:
-                    print "    Return address: 0x%08x" % dbg.get_arg(arg)
-                else:
-                    print "    Arg[%d]: 0x%08x" % (arg, dbg.get_arg(arg)),
-                    print ", deref: %s" % dbg.get_printable_string((dbg.read_process_memory(dbg.get_arg(arg), 256)))
-            except Exception, e:
-                print e
-        return DBG_CONTINUE
-    
+            
     elif dbg.context.Eip == EXE_ENTRY:
         print '[+] reached entry point, setting library breakpoints'
         try:
@@ -180,6 +186,8 @@ def print_state_info(dbg, info=''):
     if info:
         print info
 
+        
+        
     entropy = calc_entropy(list(buffer))
     #not enough data to calculate entropy, ignore
     if entropy > 0:
@@ -198,8 +206,8 @@ def print_state_info(dbg, info=''):
             thread_context = dbg.get_thread_context(None, thread_id)
             if thread_context:
                 print "Thread ID: %d, EIP: 0x%x" % (thread_id, thread_context.Eip)
-        stack_list = dbg.stack_unwind()
-        '''if stack_list:
+        '''stack_list = dbg.stack_unwind()
+        if stack_list:
             print "Call stack:"
             for return_addr in stack_list:
                 print "  0x%x" % return_addr
