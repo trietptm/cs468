@@ -11,6 +11,7 @@ from optparse import OptionParser
 #COMPLETELY ARBITRARY FOR NOW
 ENTROPY_LIMIT = 0.80
 EXE_ENTRY = None
+CALL_STACK_SIZE = 5
 
 def print_bps(dbg):
     print "BPS: "
@@ -23,7 +24,7 @@ def handler_single_step (dbg):
         #print "not in current thread?"
         return DBG_CONTINUE
     
-    elif len(dbg.encryption_bps) > 0:
+    elif len(dbg.encryption_bps) > 0 or not dbg.trace_calls:
         # Some reason it kicks into this handler sometimes... so if we have
         # some encryption bps set, just get out of it
         dbg.single_step(False)
@@ -31,8 +32,9 @@ def handler_single_step (dbg):
         
     disasm   = dbg.disasm(dbg.context.Eip)
 
-    if len(dbg.stack_trace) > 5:
-        print "stopping trace when > 5"
+    if len(dbg.stack_trace) > CALL_STACK_SIZE:
+        print "stopping trace when > ", CALL_STACK_SIZE
+        dbg.trace_calls = False
 
         print "Running call stack:"
         for addr in dbg.stack_trace:
@@ -47,17 +49,17 @@ def handler_single_step (dbg):
         dbg.stack_trace = []
         dbg.single_step(False)
         dbg.bp_del(dbg.ret_addr)
-        dbg.bp_del(dbg.func_resolve('ws2_32', 'send'))
+        #dbg.bp_del(dbg.func_resolve('ws2_32', 'send'))
         dbg.bp_del(dbg.func_resolve('ws2_32', 'recv'))
 
         return DBG_CONTINUE
 
     if disasm.startswith("ret"):
-        print "RET @ 0x%08x to 0x%08x" % (dbg.context.Eip, dbg.get_arg(0))
+        print "    - RET @ 0x%08x to 0x%08x" % (dbg.context.Eip, dbg.get_arg(0)),
         dbg.stack_trace.append(dbg.get_arg(0))
         dbg.single_step(True)
 
-        print "moving ret_addr to 0x%08x" % dbg.get_arg(0)
+        print " moving ret_addr to 0x%08x" % dbg.get_arg(0)
         dbg.bp_del(dbg.ret_addr)
         dbg.ret_addr = dbg.get_arg(0)
         dbg.bp_set(dbg.ret_addr)
@@ -97,21 +99,26 @@ def handler_breakpoint (dbg):
 
     buffer = ''
     main_dbg.hide_debugger()
-
+    
     if not dbg.bp_is_ours(dbg.context.Eip):
         pass
         
     elif dbg.context.Eip in dbg.encryption_bps:
+        print "*-*-*-*-*------------------*-*-*-*-*------------------*-*-*-*-*"
         print "[+] Hit encryption breakpoint at 0x%08x" % dbg.context.Eip
         dump_stack_args(dbg)
         return DBG_CONTINUE
         
     elif dbg.context.Eip == dbg.func_resolve('ws2_32', 'send'):
-        print "[+] Hit ws2_32.send at 0x%08x" % dbg.context.Eip
         buffer = dbg.read_process_memory(dbg.get_arg(2), dbg.get_arg(3))
         #Ignore "8" being sent from firefox
         #todo: figure out why that's sent
-        info = ('', "\nSEND: \"%s\"" % buffer)[len(buffer) > 1]
+        info = ''
+        if len(buffer) > 1:
+            print "---------------------------------------------------------------"
+            print "[+] Hit ws2_32.send at 0x%08x" % dbg.context.Eip
+            info = "    [*] SEND: \"%s\"" % buffer
+            
         print_state_info(dbg, info)
 
     elif dbg.context.Eip == dbg.func_resolve('ws2_32', 'recv'):
@@ -120,13 +127,13 @@ def handler_breakpoint (dbg):
         print_state_info(dbg, info)
 
     elif dbg.context.Eip == dbg.ret_addr:
-        print "breaking on ret_addr: 0x%08x" % dbg.ret_addr
-        print "Engage Single Stepping!"
+        print "Breaking on ret_addr: 0x%08x, single stepping..." % dbg.ret_addr
         dbg.monitor_tid = dbg.dbg.dwThreadId
         dbg.single_step(True)
 
     #We're going to do a call stack trace and put BPs on all the calls before-hand
     elif dbg.context.Eip in dbg.call_bps:
+        print "---------------------------------------------------------------"
         print "Stack BP at CALL 0x%08x" % dbg.context.Eip
         dump_stack_args(dbg)
 
@@ -138,6 +145,7 @@ def handler_breakpoint (dbg):
             dbg.call_bps = []
             dbg.ret_addr = 0
             dbg.bp_del_all()
+            
             try:
                 addrs = raw_input("Enter encryption function BPs (comma separated) [press Enter to continue search]: ")
             except ValueError:
@@ -145,16 +153,21 @@ def handler_breakpoint (dbg):
                 dbg.bp_set(dbg.func_resolve('ws2_32', 'send'))
                 dbg.bp_set(dbg.func_resolve('ws2_32', 'recv'))     
                 return DBG_CONTINUE
-            
+                
             # loop through all addr...
             addrs = re.sub('\s', '', addrs)
             for addr in addrs.split(','):
-                # reminder - addr is a string '0xdeadbeef', pydbg expects dword                
+                # reminder - addr is a string '0xdead', pydbg expects dword
                 print "[+] Setting encryption breakpoint at %s" % addr
                 dbg.bp_set(int(addr, 16))
                 print "set..."
                 dbg.encryption_bps.append(int(addr, 16))
                 print "appended..."
+                
+            # reset the send so we can compare what we've set bp's on with
+            # the actual data sent
+            dbg.bp_set(dbg.func_resolve('ws2_32', 'send'))
+            
             return DBG_CONTINUE
 
             #dbg.detach()
@@ -184,9 +197,10 @@ def print_state_info(dbg, info=''):
 
     #Don't print "SEND: 8" for firefox
     if info:
-        print info
-
-        
+        print dbg.get_printable_string(info)
+    
+    if len(dbg.encryption_bps) > 0 or not dbg.get_stack:
+        return        
         
     entropy = calc_entropy(list(buffer))
     #not enough data to calculate entropy, ignore
@@ -216,6 +230,8 @@ def print_state_info(dbg, info=''):
         print "[+] Setting BP for ret_addr at 0x%08x" % dbg.ret_addr
         dbg.bp_set(dbg.ret_addr)
         dbg.stack_trace = [] #clear out call stack
+        dbg.get_stack = False
+        print "\n\n\n                 OMG FIND STACK IS NOW FALSE MOFUCKAH\n\n\n"
 
         #print "Context: %s" % dbg.dump_context()
 
@@ -244,6 +260,8 @@ if __name__ == '__main__':
     main_dbg.ret_addr = 0
     main_dbg.call_bps = []
     main_dbg.encryption_bps = []
+    main_dbg.get_stack = True
+    main_dbg.trace_calls = True
 
     #Parse command line arguments
     parser = OptionParser()
