@@ -71,7 +71,8 @@ def handler_single_step (dbg):
 
     dbg.single_step(True)
     return DBG_CONTINUE
-
+    
+#dump stack args when looking for new encryption functions
 def dump_stack_args(dbg):
     for arg in range(3):
         try:
@@ -91,6 +92,38 @@ def dump_stack_args(dbg):
                     print dbg.get_printable_string((dbg.read_process_memory(dbg.get_arg(arg), 256)))
         except Exception, e:
             print e
+
+#print out the specified encryption function arguments
+def dump_encryption_args(dbg):
+    arg_buf = dbg.encryption_bps[dbg.context.Eip]['buffer']
+    arg_size = dbg.encryption_bps[dbg.context.Eip]['size']
+    #print "all" arguments unless specified
+    if arg_buf == -1:
+        for arg in range(3):
+            try:
+                if arg == 0:
+                    print "    Return address: 0x%08x" % dbg.get_arg(arg)
+                else:
+                    stack_arg = dbg.get_arg(arg)
+                    print "    Arg[%d]: 0x%08x, deref: " % (arg, stack_arg),
+                    
+                    # This helps eliminate some of the read_proc_mem errors by
+                    # not trying for some arguments...
+                    if stack_arg == 0x0:
+                        print "(null)"
+                    elif stack_arg < 0xFFFF:
+                        print "(buffer size or some flags?)"
+                    else:
+                        print dbg.get_printable_string((dbg.read_process_memory(dbg.get_arg(arg), 256)))
+            except Exception, e:
+                print e
+    else:
+        buffer = dbg.get_arg(arg_buf)
+        if arg_size == -1:
+            print dbg.get_printable_string((dbg.read_process_memory(buffer, 256)))
+        else:
+            size = dbg.get_arg(arg_size)
+            print dbg.get_printable_string((dbg.read_process_memory(buffer, size)))
                 
 def handler_breakpoint (dbg):
     # ignore the first windows driven breakpoint.
@@ -106,7 +139,7 @@ def handler_breakpoint (dbg):
     elif dbg.context.Eip in dbg.encryption_bps:
         print "*-*-*-*-*------------------*-*-*-*-*------------------*-*-*-*-*"
         print "[+] Hit encryption breakpoint at 0x%08x" % dbg.context.Eip
-        dump_stack_args(dbg)
+        dump_encryption_args(dbg)
         return DBG_CONTINUE
         
     elif dbg.context.Eip == dbg.func_resolve('ws2_32', 'send'):
@@ -146,23 +179,39 @@ def handler_breakpoint (dbg):
             dbg.ret_addr = 0
             dbg.bp_del_all()
             
-            try:
-                addrs = raw_input("Enter encryption function BPs (comma separated) [press Enter to continue search]: ")
-            except ValueError:
-                print "No input received, rehooking send/recv to continue search"
-                dbg.bp_set(dbg.func_resolve('ws2_32', 'send'))
-                dbg.bp_set(dbg.func_resolve('ws2_32', 'recv'))     
-                return DBG_CONTINUE
-                
+            dbg.encryption_bps = {}
+            cur_addr = None
+            print "=== Select Encryption Function Breakpoints: (q)uit ==="
+            #TODO: optimize/clean up this loop
+            while cur_addr != '':
+                cur_addr = raw_input("Enter encryption function BP [Press Enter to continue search]: ")
+                if(cur_addr == ''):
+                    print "No input received, rehooking send/recv to continue search"
+                    dbg.bp_set(dbg.func_resolve('ws2_32', 'send'))
+                    dbg.bp_set(dbg.func_resolve('ws2_32', 'recv'))     
+                    return DBG_CONTINUE
+                else:
+                    cur_addr = int(cur_addr, 16)
+                    cur_buffer = raw_input("Enter buffer argument number [Press Enter to always print all args]: ")
+                    if cur_buffer == '':
+                        dbg.encryption_bps[cur_addr] = {'buffer': -1, 'size': -1}
+                    else:
+                        cur_size = raw_input("Enter size argument number [Press Enter to always print all args]: ")
+                        if cur_size != '':
+                            dbg.encryption_bps[cur_addr] = {'buffer': int(cur_buffer), 'size': int(cur_size)}
+                        else:
+                            dbg.encryption_bps[cur_addr] = {'buffer': -1, 'size': -1}
+                    dbg.bp_set(cur_addr)
+                            
             # loop through all addr...
-            addrs = re.sub('\s', '', addrs)
+            '''addrs = re.sub('\s', '', addrs)
             for addr in addrs.split(','):
                 # reminder - addr is a string '0xdead', pydbg expects dword
                 print "[+] Setting encryption breakpoint at %s" % addr
                 dbg.bp_set(int(addr, 16))
                 print "set..."
                 dbg.encryption_bps.append(int(addr, 16))
-                print "appended..."
+                print "appended..."'''
                 
             # reset the send so we can compare what we've set bp's on with
             # the actual data sent
@@ -182,7 +231,7 @@ def handler_breakpoint (dbg):
             print 'Unable to register some of the library breakpoints'
     else:
         print 'Could not find handler for BP @ 0x%08x' % dbg.context.Eip
-        print 'dbg.ret_addr == 0x%08x' % dbg.ret_addr
+        #print 'dbg.ret_addr == 0x%08x' % dbg.ret_addr
 
     #print "ws2_32.send() called from thread %d @%08x" % (pydbg.dbg.dwThreadId, pydbg.exception_address)
     return DBG_CONTINUE
