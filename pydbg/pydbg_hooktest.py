@@ -33,48 +33,42 @@ def handler_single_step (dbg):
     disasm   = dbg.disasm(dbg.context.Eip)
 
     if len(dbg.stack_trace) > CALL_STACK_SIZE:
-        print "stopping trace when > ", CALL_STACK_SIZE
+        print "  [i] Stopping trace, call stack size reached", CALL_STACK_SIZE
         dbg.trace_calls = False
 
-        print "Running call stack:"
+        #print "Running call stack:"
         for addr in dbg.stack_trace:
             callAddr, callLine = dbg.disasm_around(addr)[4]
             dbg.call_bps.append(callAddr)
-            print "Address: 0x%08x" % addr
-            if '[' in callLine:
-                callLine += " (0x%08x)" % callAddr
-            print "  adding BP on %s" % callLine
+            print "    [i] Breakpoint set at 0x%08x" % addr
             dbg.bp_set(callAddr)
 
         dbg.stack_trace = []
         dbg.single_step(False)
         dbg.bp_del(dbg.ret_addr)
-        #dbg.bp_del(dbg.func_resolve('ws2_32', 'send'))
+        dbg.bp_del(dbg.func_resolve('ws2_32', 'send'))
         dbg.bp_del(dbg.func_resolve('ws2_32', 'recv'))
-
+        
         return DBG_CONTINUE
 
     if disasm.startswith("ret"):
-        print "    - RET @ 0x%08x to 0x%08x" % (dbg.context.Eip, dbg.get_arg(0)),
+        #print "    - RET @ 0x%08x to 0x%08x" % (dbg.context.Eip, dbg.get_arg(0)),
         dbg.stack_trace.append(dbg.get_arg(0))
         dbg.single_step(True)
 
-        print " moving ret_addr to 0x%08x" % dbg.get_arg(0)
+        #print " moving ret_addr to 0x%08x" % dbg.get_arg(0)
         dbg.bp_del(dbg.ret_addr)
         dbg.ret_addr = dbg.get_arg(0)
         dbg.bp_set(dbg.ret_addr)
+        
         return DBG_CONTINUE
-        #check_stack_integrity(dbg)
-
-    #if disasm.startswith("call"):
-    #    dbg.mirror_stack.append((dbg.context.Esp-4, dbg.context.Eip + dbg.instruction.length))
-
+        
     dbg.single_step(True)
     return DBG_CONTINUE
     
 #dump stack args when looking for new encryption functions
 def dump_stack_args(dbg):
-    for arg in range(3):
+    for arg in range(1, 3):
         try:
             if arg == 0:
                 print "    Return address: 0x%08x" % dbg.get_arg(arg)
@@ -90,6 +84,7 @@ def dump_stack_args(dbg):
                     print "(buffer size or some flags?)"
                 else:
                     print dbg.get_printable_string((dbg.read_process_memory(dbg.get_arg(arg), 256)))
+                print
         except Exception, e:
             print e
 
@@ -150,29 +145,34 @@ def handler_breakpoint (dbg):
         if len(buffer) > 1:
             print "---------------------------------------------------------------"
             print "[+] Hit ws2_32.send at 0x%08x" % dbg.context.Eip
-            info = "    [*] SEND: \"%s\"" % buffer
+            info = "  [*] SEND: \"%s\"" % buffer
             
         print_state_info(dbg, info)
 
     elif dbg.context.Eip == dbg.func_resolve('ws2_32', 'recv'):
         buffer = dbg.read_process_memory(dbg.get_arg(2), dbg.get_arg(3))
-        info = ('', "\nRECV: \"%s\"" % buffer)[len(buffer) > 1]
+        info = ''
+        if len(buffer) > 1:
+            print "---------------------------------------------------------------"
+            print "[+] Hit ws2_32.recv at 0x%08x" % dbg.context.Eip
+            info = "  [*] RECV: \"%s\"" % buffer
+            
         print_state_info(dbg, info)
 
     elif dbg.context.Eip == dbg.ret_addr:
-        print "Breaking on ret_addr: 0x%08x, single stepping..." % dbg.ret_addr
+        #print "Breaking on ret_addr: 0x%08x, single stepping..." % dbg.ret_addr
         dbg.monitor_tid = dbg.dbg.dwThreadId
         dbg.single_step(True)
 
     #We're going to do a call stack trace and put BPs on all the calls before-hand
     elif dbg.context.Eip in dbg.call_bps:
         print "---------------------------------------------------------------"
-        print "Stack BP at CALL 0x%08x" % dbg.context.Eip
+        print "[+] Hit Stack BP at CALL 0x%08x\n" % dbg.context.Eip
         dump_stack_args(dbg)
 
         dbg.bp_del(dbg.context.Eip)
         dbg.call_bps.remove(dbg.context.Eip)
-
+        
         if len(dbg.call_bps) == 0:
             #clear out everything
             dbg.call_bps = []
@@ -181,14 +181,15 @@ def handler_breakpoint (dbg):
             
             dbg.encryption_bps = {}
             cur_addr = None
-            print "=== Select Encryption Function Breakpoints: (q)uit ==="
+            print "=== Select Encryption Function Breakpoints ==="
             #TODO: optimize/clean up this loop
             while cur_addr != '':
                 cur_addr = raw_input("Enter encryption function BP [Press Enter to continue search]: ")
-                if(cur_addr == ''):
+                if(cur_addr == '' or cur_addr == 'q'):
                     print "No input received, rehooking send/recv to continue search"
                     dbg.bp_set(dbg.func_resolve('ws2_32', 'send'))
-                    dbg.bp_set(dbg.func_resolve('ws2_32', 'recv'))     
+                    dbg.bp_set(dbg.func_resolve('ws2_32', 'recv'))
+                    dbg.get_stack = True
                     return DBG_CONTINUE
                 else:
                     cur_addr = int(cur_addr, 16)
@@ -218,9 +219,8 @@ def handler_breakpoint (dbg):
             dbg.bp_set(dbg.func_resolve('ws2_32', 'send'))
             
             return DBG_CONTINUE
-
-            #dbg.detach()
-            #print "...well can't detach, hit ctrl c"
+        else:
+            print "[-] Waiting for", len(dbg.call_bps), "more CALL BPs to be hit"
             
     elif dbg.context.Eip == EXE_ENTRY:
         print '[+] reached entry point, setting library breakpoints'
@@ -233,7 +233,6 @@ def handler_breakpoint (dbg):
         print 'Could not find handler for BP @ 0x%08x' % dbg.context.Eip
         #print 'dbg.ret_addr == 0x%08x' % dbg.ret_addr
 
-    #print "ws2_32.send() called from thread %d @%08x" % (pydbg.dbg.dwThreadId, pydbg.exception_address)
     return DBG_CONTINUE
 
 def print_state_info(dbg, info=''):
@@ -249,26 +248,21 @@ def print_state_info(dbg, info=''):
         print dbg.get_printable_string(info)
     
     if len(dbg.encryption_bps) > 0 or not dbg.get_stack:
-        return        
+        return
         
     entropy = calc_entropy(list(buffer))
-    #not enough data to calculate entropy, ignore
-    if entropy > 0:
-        print "Entropy: %f" % entropy
-
-    if entropy > ENTROPY_LIMIT:
-        print "=== ENCRYPTED TRAFFIC ==="
-        #todone: Figure out how to get the call stack
-        #idea: we're in the wrong thread context (in ws2_32, not PID)
-        #      enumerate all threads, find the one where its context.Eip == return value range
+    if entropy > dbg.entropyCutoff:
+        print "[!] Entropy: %f" % entropy, " ENCRYPTED TRAFFIC"
         dll = dbg.addr_to_dll(dbg.context.Eip)
         if dll:
-            print "Currently in DLL: %s" % dll.name
-        print "Return address: 0x%x" % return_addr
+            print "  [i] Currently in DLL: %s" % dll.name
+        #print "Return address: 0x%x" % return_addr
+        
+        #idea: we're in the wrong thread context (in ws2_32, not PID)
+        #      enumerate all threads, find the one where its context.Eip == return value range
         for thread_id in dbg.enumerate_threads():
             thread_context = dbg.get_thread_context(None, thread_id)
-            if thread_context:
-                print "Thread ID: %d, EIP: 0x%x" % (thread_id, thread_context.Eip)
+            
         '''stack_list = dbg.stack_unwind()
         if stack_list:
             print "Call stack:"
@@ -276,14 +270,13 @@ def print_state_info(dbg, info=''):
                 print "  0x%x" % return_addr
         else: #try to manually reconstruct the call stack'''
         dbg.ret_addr = dbg.get_arg(0)
-        print "[+] Setting BP for ret_addr at 0x%08x" % dbg.ret_addr
+        #print "[+] Setting BP for ret_addr at 0x%08x" % dbg.ret_addr
         dbg.bp_set(dbg.ret_addr)
         dbg.stack_trace = [] #clear out call stack
         dbg.get_stack = False
-        print "\n\n\n                 OMG FIND STACK IS NOW FALSE MOFUCKAH\n\n\n"
-
-        #print "Context: %s" % dbg.dump_context()
-
+    elif entropy > 0:
+        print "Entropy: %f < %f, Traffic doesn't appear to be encrypted" % (entropy, dbg.entropyCutoff)
+        
 def calc_entropy(hex_list):
     #See http://en.wikipedia.org/wiki/Entropy_%28information_theory%29#Definition
     #TODO: Optimize
@@ -316,9 +309,11 @@ if __name__ == '__main__':
     parser = OptionParser()
     parser.add_option("-a", "--attach", dest="attachName", default='', help="Name/PID of process to attach to")
     parser.add_option("-l", "--load", dest="filepath", default='', help="Path of file to load")
-
+    parser.add_option("-e", "--entropy-cutoff", type= "float", dest="entropy", default=ENTROPY_LIMIT, help="Traffic with entropy above this level is assumed to be encrypted (0 - 1) defaults to .8")
+    
     (options, args) = parser.parse_args()
-
+    main_dbg.entropyCutoff = options.entropy
+    
     if options.attachName:
         #find our process if we want to attach
         foundPID = False
