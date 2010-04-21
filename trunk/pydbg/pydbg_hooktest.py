@@ -12,6 +12,7 @@ from optparse import OptionParser
 ENTROPY_LIMIT = 0.80
 EXE_ENTRY = None
 CALL_STACK_SIZE = 5
+NUM_STACK_ARGS = 3
 
 def print_bps(dbg):
     print "BPS: "
@@ -32,22 +33,25 @@ def handler_single_step (dbg):
         
     disasm   = dbg.disasm(dbg.context.Eip)
 
-    if len(dbg.stack_trace) > CALL_STACK_SIZE:
-        print "  [i] Stopping trace, call stack size reached", CALL_STACK_SIZE
+    if len(dbg.stack_trace) > dbg.call_stack_size:
+        print "  [i] Stopping trace, call stack size reached", dbg.call_stack_size
         dbg.trace_calls = False
 
         #print "Running call stack:"
         for addr in dbg.stack_trace:
-            callAddr, callLine = dbg.disasm_around(addr)[4]
-            dbg.call_bps.append(callAddr)
-            print "    [i] Breakpoint set at 0x%08x" % addr
-            dbg.bp_set(callAddr)
-
+            try:
+                callAddr, callLine = dbg.disasm_around(addr)[4]
+                dbg.call_bps.append(callAddr)
+                print "    [i] Breakpoint set at 0x%08x" % callAddr
+                dbg.bp_set(callAddr)
+            except Exception, e:
+                print "    [X] Exception happened in disasm_around(0x%08x): %s, not placing breakpoint" % (addr, e)
+       
         dbg.stack_trace = []
         dbg.single_step(False)
         dbg.bp_del(dbg.ret_addr)
         dbg.bp_del(dbg.func_resolve('ws2_32', 'send'))
-        dbg.bp_del(dbg.func_resolve('ws2_32', 'recv'))
+        #dbg.bp_del(dbg.func_resolve('ws2_32', 'recv'))
         
         return DBG_CONTINUE
 
@@ -68,7 +72,7 @@ def handler_single_step (dbg):
     
 #dump stack args when looking for new encryption functions
 def dump_stack_args(dbg):
-    for arg in range(1, 3):
+    for arg in range(dbg.num_stack_args):
         try:
             if arg == 0:
                 print "    Return address: 0x%08x" % dbg.get_arg(arg)
@@ -94,7 +98,7 @@ def dump_encryption_args(dbg):
     arg_size = dbg.encryption_bps[dbg.context.Eip]['size']
     #print "all" arguments unless specified
     if arg_buf == -1:
-        for arg in range(3):
+        for arg in range(dbg.num_stack_args):
             try:
                 if arg == 0:
                     print "    Return address: 0x%08x" % dbg.get_arg(arg)
@@ -188,7 +192,7 @@ def handler_breakpoint (dbg):
                 if(cur_addr == '' or cur_addr == 'q'):
                     print "No input received, rehooking send/recv to continue search"
                     dbg.bp_set(dbg.func_resolve('ws2_32', 'send'))
-                    dbg.bp_set(dbg.func_resolve('ws2_32', 'recv'))
+                    #dbg.bp_set(dbg.func_resolve('ws2_32', 'recv'))
                     dbg.get_stack = True
                     return DBG_CONTINUE
                 else:
@@ -226,7 +230,7 @@ def handler_breakpoint (dbg):
         print '[+] reached entry point, setting library breakpoints'
         try:
             dbg.bp_set(dbg.func_resolve('ws2_32','send'))
-            dbg.bp_set(dbg.func_resolve('ws2_32','recv'))
+            #dbg.bp_set(dbg.func_resolve('ws2_32','recv'))
         except Exception:
             print 'Unable to register some of the library breakpoints'
     else:
@@ -247,7 +251,7 @@ def print_state_info(dbg, info=''):
     if info:
         print dbg.get_printable_string(info)
     
-    if len(dbg.encryption_bps) > 0 or not dbg.get_stack:
+    if len(dbg.encryption_bps) > 0:# or not dbg.get_stack:
         return
         
     entropy = calc_entropy(list(buffer))
@@ -309,10 +313,14 @@ if __name__ == '__main__':
     parser = OptionParser()
     parser.add_option("-a", "--attach", dest="attachName", default='', help="Name/PID of process to attach to")
     parser.add_option("-l", "--load", dest="filepath", default='', help="Path of file to load")
-    parser.add_option("-e", "--entropy-cutoff", type= "float", dest="entropy", default=ENTROPY_LIMIT, help="Traffic with entropy above this level is assumed to be encrypted (0 - 1) defaults to .8")
+    parser.add_option("-e", "--entropy-cutoff", type= "float", dest="entropy", default=ENTROPY_LIMIT, help="Traffic with entropy above this level is assumed to be encrypted (0 - 1) defaults to " + str(ENTROPY_LIMIT))
+    parser.add_option("-s", "--stack-size", type="int", dest="stack_size", default=CALL_STACK_SIZE, help="This is the size of the call stack to use when looking for encryption routines, defaults to " + str(CALL_STACK_SIZE))
+    parser.add_option("-n", "--num-stack-args", type="int", dest="num_stack_args", default=NUM_STACK_ARGS, help="The number of arguments to attempt to pull off the stack at a time, defaults to " + str(NUM_STACK_ARGS))
     
     (options, args) = parser.parse_args()
     main_dbg.entropyCutoff = options.entropy
+    main_dbg.call_stack_size = options.stack_size
+    main_dbg.num_stack_args = options.num_stack_args
     
     if options.attachName:
         #find our process if we want to attach
@@ -334,7 +342,7 @@ if __name__ == '__main__':
             main_dbg.attach(pid)
             #try:
             main_dbg.bp_set(main_dbg.func_resolve('ws2_32','send'))
-            main_dbg.bp_set(main_dbg.func_resolve('ws2_32','recv'))
+            #main_dbg.bp_set(main_dbg.func_resolve('ws2_32','recv'))
             #except:
                 #figure out how to report which one failed
                 #print 'Unable to register some of the library breakpoints'
