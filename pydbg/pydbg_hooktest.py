@@ -129,7 +129,10 @@ def dump_encryption_args(dbg):
             print dbg.get_printable_string((dbg.read_process_memory(buffer, 256)))
         else:
             size = dbg.get_arg(arg_size)
-            print dbg.read_process_memory(buffer, size)
+            try:
+                print dbg.read_process_memory(buffer, size)
+            except:
+                print '[!] Could not read memory at location 0x%08x of length %d' % (buffer, size)
                 
 def handler_breakpoint (dbg):
     # ignore the first windows driven breakpoint.
