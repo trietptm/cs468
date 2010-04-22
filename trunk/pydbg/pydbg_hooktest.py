@@ -95,7 +95,6 @@ def dump_stack_args(dbg):
                     print "(buffer size or some flags?)"
                 else:
                     print dbg.get_printable_string((dbg.read_process_memory(dbg.get_arg(arg), 256)))
-                print
         except Exception, e:
             print e
 
@@ -182,7 +181,7 @@ def handler_breakpoint (dbg):
     #We're going to do a call stack trace and put BPs on all the calls before-hand
     elif dbg.context.Eip in dbg.call_bps:
         print "---------------------------------------------------------------"
-        print "[+] Hit Stack BP at CALL 0x%08x\n" % dbg.context.Eip
+        print "\n[+] Hit Stack BP at CALL 0x%08x" % dbg.context.Eip
         dump_stack_args(dbg)
 
         dbg.bp_del(dbg.context.Eip)
@@ -234,7 +233,7 @@ def handler_breakpoint (dbg):
             
             return DBG_CONTINUE
         else:
-            print "[-] Waiting for", len(dbg.call_bps), "more CALL BPs to be hit"
+            print "[-] Waiting for", len(dbg.call_bps), "more CALL BPs to be hit\n"
             
     elif dbg.context.Eip == EXE_ENTRY:
         print '[+] reached entry point, setting library breakpoints'
