@@ -20,7 +20,10 @@ def print_bps(dbg):
         print "  %08X" % bp
 
 def handler_single_step (dbg):
-    #print "Inside handler_single_step!"
+    #print "Inside handler_single_step @ 0x%08x!" % dbg.context.Eip
+    if not dbg.single_stepping:
+        #print "Not supposed to be single stepping!"
+        return DBG_CONTINUE
     if dbg.dbg.dwThreadId != dbg.monitor_tid:
         #print "not in current thread?"
         return DBG_CONTINUE
@@ -28,6 +31,7 @@ def handler_single_step (dbg):
     elif len(dbg.encryption_bps) > 0 or not dbg.trace_calls:
         # Some reason it kicks into this handler sometimes... so if we have
         # some encryption bps set, just get out of it
+        dbg.single_stepping = False
         dbg.single_step(False)
         return DBG_CONTINUE
         
@@ -48,6 +52,7 @@ def handler_single_step (dbg):
                 print "    [X] Exception happened in disasm_around(0x%08x): %s, not placing breakpoint" % (addr, e)
        
         dbg.stack_trace = []
+        dbg.single_stepping = False
         dbg.single_step(False)
         dbg.bp_del(dbg.ret_addr)
         dbg.bp_del(dbg.func_resolve('ws2_32', 'send'))
@@ -56,17 +61,19 @@ def handler_single_step (dbg):
         return DBG_CONTINUE
 
     if disasm.startswith("ret"):
-        #print "    - RET @ 0x%08x to 0x%08x" % (dbg.context.Eip, dbg.get_arg(0)),
+        print "    - RET @ 0x%08x to 0x%08x" % (dbg.context.Eip, dbg.get_arg(0)),
         dbg.stack_trace.append(dbg.get_arg(0))
+        dbg.single_stepping = True
         dbg.single_step(True)
 
-        #print " moving ret_addr to 0x%08x" % dbg.get_arg(0)
+        print " moving ret_addr to 0x%08x" % dbg.get_arg(0)
         dbg.bp_del(dbg.ret_addr)
         dbg.ret_addr = dbg.get_arg(0)
         dbg.bp_set(dbg.ret_addr)
         
         return DBG_CONTINUE
-        
+    
+    dbg.single_stepping = True
     dbg.single_step(True)
     return DBG_CONTINUE
     
@@ -122,7 +129,7 @@ def dump_encryption_args(dbg):
             print dbg.get_printable_string((dbg.read_process_memory(buffer, 256)))
         else:
             size = dbg.get_arg(arg_size)
-            print dbg.get_printable_string((dbg.read_process_memory(buffer, size)))
+            print dbg.read_process_memory(buffer, size)
                 
 def handler_breakpoint (dbg):
     # ignore the first windows driven breakpoint.
@@ -164,8 +171,9 @@ def handler_breakpoint (dbg):
         print_state_info(dbg, info)
 
     elif dbg.context.Eip == dbg.ret_addr:
-        #print "Breaking on ret_addr: 0x%08x, single stepping..." % dbg.ret_addr
+        print "[+] Breaking on ret_addr: 0x%08x, single stepping..." % dbg.ret_addr
         dbg.monitor_tid = dbg.dbg.dwThreadId
+        dbg.single_stepping = True
         dbg.single_step(True)
 
     #We're going to do a call stack trace and put BPs on all the calls before-hand
@@ -193,7 +201,6 @@ def handler_breakpoint (dbg):
                     print "No input received, rehooking send/recv to continue search"
                     dbg.bp_set(dbg.func_resolve('ws2_32', 'send'))
                     #dbg.bp_set(dbg.func_resolve('ws2_32', 'recv'))
-                    dbg.get_stack = True
                     return DBG_CONTINUE
                 else:
                     cur_addr = int(cur_addr, 16)
@@ -251,7 +258,7 @@ def print_state_info(dbg, info=''):
     if info:
         print dbg.get_printable_string(info)
     
-    if len(dbg.encryption_bps) > 0:# or not dbg.get_stack:
+    if len(dbg.encryption_bps) > 0:
         return
         
     entropy = calc_entropy(list(buffer))
@@ -274,12 +281,13 @@ def print_state_info(dbg, info=''):
                 print "  0x%x" % return_addr
         else: #try to manually reconstruct the call stack'''
         dbg.ret_addr = dbg.get_arg(0)
-        #print "[+] Setting BP for ret_addr at 0x%08x" % dbg.ret_addr
+        print "[+] Setting BP for ret_addr at 0x%08x" % dbg.ret_addr
         dbg.bp_set(dbg.ret_addr)
         dbg.stack_trace = [] #clear out call stack
-        dbg.get_stack = False
+        dbg.trace_calls = True
     elif entropy > 0:
         print "Entropy: %f < %f, Traffic doesn't appear to be encrypted" % (entropy, dbg.entropyCutoff)
+        dbg.trace_calls = False
         
 def calc_entropy(hex_list):
     #See http://en.wikipedia.org/wiki/Entropy_%28information_theory%29#Definition
@@ -306,8 +314,8 @@ if __name__ == '__main__':
     main_dbg.ret_addr = 0
     main_dbg.call_bps = []
     main_dbg.encryption_bps = []
-    main_dbg.get_stack = True
     main_dbg.trace_calls = True
+    main_dbg.single_stepping = False
 
     #Parse command line arguments
     parser = OptionParser()
